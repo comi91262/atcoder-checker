@@ -5,26 +5,72 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/urfave/cli/v2"
 )
 
-func download() {
-	url := "https://atcoder.jp/contests/abc046/tasks/abc046_a"
+const contestUrl = "https://atcoder.jp/contests"
 
-	res, _ := http.Get(url)
+func downloadDocuments(url string) (*goquery.Document, error) {
+	res, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
+		return nil, err
 	}
 
 	// Load the HTML document
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
 		log.Fatal(err)
+	}
+	return doc, nil
+}
+
+func downloadTasks(contestId string) {
+	url := contestUrl + "/" + path.Join(contestId, "tasks")
+
+	doc, err := downloadDocuments(url)
+	if err != nil {
+		log.Fatal("fail to download html")
+		return
+	}
+
+	doc.Find("table").Each(func(i int, s *goquery.Selection) {
+		fmt.Printf("%v\n", s.Text())
+		// fmt.Printf("%v\n", s.Find("h3").Text())
+		// s.Find("pre").Each(func(i int, s *goquery.Selection) {
+		// 	fmt.Printf("%v\n", s.Text())
+		// 	tex += s.Text()
+		// })
+	})
+
+	// for tag in soup.find('table').select('tr')[1::]:
+	//     tag = tag.find("a")
+	//     alphabet = tag.text
+	//     problem_id = tag.get("href").split("/")[-1]
+	//     res.append(Problem(contest, alphabet, problem_id))
+	// return res
+
+	//fmt.Println(string(byteArray)) // htmlをstringで取得
+}
+
+func downloadSample(contestId, problemId string) {
+
+	url := contestUrl + "/" + path.Join(contestId, "tasks", problemId)
+
+	doc, err := downloadDocuments(url)
+	if err != nil {
+		log.Fatal("fail to download sample")
+		return
 	}
 
 	tex := ""
@@ -55,22 +101,6 @@ func archiveFile(code, fileName, path string) error {
 	return nil
 }
 
-//res, err := http.Get("http://metalsucks.net")
-//
-//
-//  if err != nil {
-//    log.Fatal(err)
-//  }
-//  defer res.Body.Close()
-//  if res.StatusCode != 200 {
-//    log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
-//  }
-//
-//  // Load the HTML document
-//  doc, err := goquery.NewDocumentFromReader(res.Body)
-//  if err != nil {
-//    log.Fatal(err)
-//  }
 //
 //  // Find the review items
 //  doc.Find(".left-content article .post-title").Each(func(i int, s *goquery.Selection) {
@@ -87,7 +117,8 @@ func main() {
 				Aliases: []string{"d"},
 				Usage:   "download sample",
 				Action: func(c *cli.Context) error {
-					download()
+					// downloadSample("abc046", "abc046_a")
+					downloadTasks("abc046")
 					return nil
 				},
 			},
