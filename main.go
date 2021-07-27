@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -24,14 +26,32 @@ func main() {
 		log.Fatal(err)
 	}
 
+	tex := ""
 	doc.Find("section").Each(func(i int, s *goquery.Selection) {
 		fmt.Printf("%v\n", s.Find("h3").Text())
 		s.Find("pre").Each(func(i int, s *goquery.Selection) {
 			fmt.Printf("%v\n", s.Text())
+			tex += s.Text()
 		})
 	})
 
+	archiveFile(tex, "a.txt", "sample")
+
 	//fmt.Println(string(byteArray)) // htmlをstringで取得
+}
+
+func archiveFile(code, fileName, path string) error {
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return err
+	}
+	filePath := filepath.Join(path, fileName)
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	file.WriteString(code)
+	return nil
 }
 
 //res, err := http.Get("http://metalsucks.net")
