@@ -2,23 +2,41 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"log"
 	"net/http"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 func main() {
 	url := "https://atcoder.jp/contests/abc046/tasks/abc046_a"
 
-	resp, _ := http.Get(url)
-	defer resp.Body.Close()
+	res, _ := http.Get(url)
+	defer res.Body.Close()
 
-	byteArray, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(byteArray)) // htmlをstringで取得
+	if res.StatusCode != 200 {
+		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
+	}
+
+	// Load the HTML document
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	doc.Find("section").Each(func(i int, s *goquery.Selection) {
+		fmt.Printf("%v\n", s.Find("h3").Text())
+		s.Find("pre").Each(func(i int, s *goquery.Selection) {
+			fmt.Printf("%v\n", s.Text())
+		})
+	})
+
+	//fmt.Println(string(byteArray)) // htmlをstringで取得
 }
 
 //res, err := http.Get("http://metalsucks.net")
 //
-//c
+//
 //  if err != nil {
 //    log.Fatal(err)
 //  }
