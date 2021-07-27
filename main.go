@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/urfave/cli/v2"
 )
 
-func main() {
+func download() {
 	url := "https://atcoder.jp/contests/abc046/tasks/abc046_a"
 
 	res, _ := http.Get(url)
@@ -77,3 +78,24 @@ func archiveFile(code, fileName, path string) error {
 //		title := s.Find("a").Text()
 //		fmt.Printf("Review %d: %s\n", i, title)
 //	})
+
+func main() {
+	app := cli.App{Name: "oj-go", Usage: "Atcoder utility tools",
+		Commands: []*cli.Command{
+			{
+				Name:    "download",
+				Aliases: []string{"d"},
+				Usage:   "download sample",
+				Action: func(c *cli.Context) error {
+					download()
+					return nil
+				},
+			},
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
