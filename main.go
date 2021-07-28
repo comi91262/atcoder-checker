@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -154,15 +155,22 @@ func execute() {
 		return
 	}
 
-	io.WriteString(stdin, "hoge")
-	defer stdin.Close()
+	bytes, err := ioutil.ReadFile("sample/input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = io.WriteString(stdin, string(bytes))
+	if err != nil {
+		log.Fatal(err)
+	}
+	stdin.Close()
 
 	out, err := cmd.Output()
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	fmt.Printf("結果: %s", out)
+	fmt.Printf("%s", out)
 }
 
 //
