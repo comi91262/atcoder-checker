@@ -113,11 +113,11 @@ func downloadSample(taskUrl string) {
 	taskId := ids[1]
 
 	for i := range input {
-		archiveFile(input[i], strconv.Itoa(i)+"txt", filepath.Join("sample", contestId, taskId, "in"))
+		archiveFile(input[i], strconv.Itoa(i)+".txt", filepath.Join("sample", contestId, taskId, "in"))
 	}
 
 	for i := range output {
-		archiveFile(output[i], strconv.Itoa(i)+"txt", filepath.Join("sample", contestId, taskId, "out"))
+		archiveFile(output[i], strconv.Itoa(i)+".txt", filepath.Join("sample", contestId, taskId, "out"))
 	}
 	//fmt.Println(string(byteArray)) // htmlをstringで取得
 }
@@ -174,31 +174,70 @@ func archiveFile(code, fileName, path string) error {
 // 	fmt.Printf("結果: %s", out)
 // }
 
-func execute() {
-	cmd := exec.Command("./hoge")
+func execute(contestId, taskId string) {
+	inputPath := filepath.Join("sample", contestId, taskId, "in")
 
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		log.Fatal(err)
-		return
+	inputs := []string{}
+	filepath.Walk(inputPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Fatal(err)
+			return nil
+		}
+
+		if !info.IsDir() {
+			inputs = append(inputs, path)
+		}
+		return nil
+	})
+
+	outputs := []string{}
+	outputPath := filepath.Join("sample", contestId, taskId, "out")
+	filepath.Walk(outputPath, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			outputs = append(outputs, path)
+		}
+		return nil
+	})
+
+	for i := range inputs {
+		cmd := exec.Command("./hoge")
+
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		bytes, err := ioutil.ReadFile(inputs[i])
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = io.WriteString(stdin, string(bytes))
+		if err != nil {
+			log.Fatal(err)
+		}
+		stdin.Close()
+
+		out, err := cmd.Output()
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		bytes, err = ioutil.ReadFile(outputs[i])
+		if err != nil {
+			panic(err)
+		}
+
+		if string(bytes) == string(out) {
+			fmt.Println("AC")
+		} else {
+			fmt.Println("WA")
+			fmt.Printf("%s", bytes)
+			fmt.Printf("%s", out)
+		}
 	}
 
-	bytes, err := ioutil.ReadFile("sample/input.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = io.WriteString(stdin, string(bytes))
-	if err != nil {
-		log.Fatal(err)
-	}
-	stdin.Close()
-
-	out, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-	fmt.Printf("%s", out)
 }
 
 //
@@ -240,12 +279,13 @@ func main() {
 				},
 			},
 			{
-				Name:    "compile",
-				Aliases: []string{"c"},
-				Usage:   "compile program sample",
+				Name:    "test",
+				Aliases: []string{"t"},
+				Usage:   "test sample",
 				Action: func(c *cli.Context) error {
-					//	compile()
-					execute()
+					contestId := c.Args().Get(0)
+					taskId := c.Args().Get(1)
+					execute(contestId, taskId)
 					return nil
 				},
 			},
