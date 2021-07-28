@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/urfave/cli/v2"
@@ -66,24 +69,60 @@ func downloadSample(contestId, problemId string) {
 		return
 	}
 
-	tex := ""
+	inputText := ""
+	outputText := ""
 	doc.Find("section").Each(func(i int, s *goquery.Selection) {
-		fmt.Printf("%v\n", s.Find("h3").Text())
-		s.Find("pre").Each(func(i int, s *goquery.Selection) {
-			fmt.Printf("%v\n", s.Text())
-			tex += s.Text()
-		})
+		if strings.HasPrefix(s.Find("h3").Text(), "入力例") {
+			fmt.Printf("%v\n", s.Find("h3").Text())
+			s.Find("pre").Each(func(i int, s *goquery.Selection) {
+				fmt.Printf("%v\n", s.Text())
+				inputText += s.Text() + "\n"
+			})
+		}
+		if strings.HasPrefix(s.Find("h3").Text(), "出力例") {
+			fmt.Printf("%v\n", s.Find("h3").Text())
+			s.Find("pre").Each(func(i int, s *goquery.Selection) {
+				fmt.Printf("%v\n", s.Text())
+				outputText += s.Text() + "\n"
+			})
+		}
 	})
 
-	archiveFile(tex, "a.txt", "sample")
-
+	archiveFile(inputText, "input.txt", "sample")
+	archiveFile(outputText, "output.txt", "sample")
 	//fmt.Println(string(byteArray)) // htmlをstringで取得
 }
 
-func archiveFile(code, fileName, path string) error {
+// func loadSample() {
+// 	filepath.Walk("sample", func(path string, info os.FileInfo, err error) error {
+// 		if !info.IsDir() {
+// 			fmt.Printf("%v\n", path)
+// 			fp, err := os.Open(path)
+// 			if err != nil {
+// 				log.Println(err)
+// 				return err
+// 			}
+// 			defer fp.Close()
+// 			scanner := bufio.NewScanner(fp)
+// 			for scanner.Scan() {
+// 				archivedKeys[scanner.Text()] = struct{}{}
+// 			}
+// 		}
+// 		return nil
+// 	})
+// }
+
+func makeDirectory(path string) error {
 	if err := os.MkdirAll(path, 0700); err != nil {
+		log.Fatal(err)
 		return err
 	}
+
+	return nil
+}
+
+func archiveFile(code, fileName, path string) error {
+	makeDirectory(path)
 	filePath := filepath.Join(path, fileName)
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -92,6 +131,38 @@ func archiveFile(code, fileName, path string) error {
 	defer file.Close()
 	file.WriteString(code)
 	return nil
+}
+
+// func compile() {
+// 	// TODO not found hoge.go
+// 	out, err := exec.Command("go", "build", "-o", "main", "hoge.go").Output()
+// 	if err != nil {
+// 		log.Fatal(err)
+// 		return
+// 	}
+//
+// 	out, err := exec.Command("go", "build", "-o", "main", "hoge.go").Output()
+// 	fmt.Printf("結果: %s", out)
+// }
+
+func execute() {
+	cmd := exec.Command("./hoge")
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	io.WriteString(stdin, "hoge")
+	defer stdin.Close()
+
+	out, err := cmd.Output()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	fmt.Printf("結果: %s", out)
 }
 
 //
@@ -110,11 +181,23 @@ func main() {
 				Aliases: []string{"d"},
 				Usage:   "download sample",
 				Action: func(c *cli.Context) error {
-					fmt.Print(downloadTasks("abc001"))
-					fmt.Print(downloadTasks("abc010"))
-					fmt.Print(downloadTasks("abc100"))
-					fmt.Print(downloadTasks("abc190"))
-					downloadSample("abc046", "abc046_a")
+					// fmt.Print(downloadTasks("abc001"))
+					// downloadSample("abc001", "abc001_1")
+					// downloadSample("abc010", "abc010_1")
+					// downloadSample("abc057", "abc057_b")
+					// downloadSample("abc100", "abc100_a")
+					// downloadSample("abc200", "abc200_a")
+					execute()
+					return nil
+				},
+			},
+			{
+				Name:    "compile",
+				Aliases: []string{"c"},
+				Usage:   "compile program sample",
+				Action: func(c *cli.Context) error {
+					//	compile()
+					execute()
 					return nil
 				},
 			},
