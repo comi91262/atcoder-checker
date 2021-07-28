@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/urfave/cli/v2"
@@ -262,14 +264,27 @@ func main() {
 					taskUrls := downloadTasks(contestId)
 
 					fmt.Printf("%v\n", len(taskUrls))
+
+					wg := &sync.WaitGroup{} // WaitGroupの値を作る
+					startTime := time.Now()
 					for i := range taskUrls {
 						fmt.Printf("%v\n", i)
 						fmt.Printf("%v\n", taskUrls[i])
 						if taskUrls[i] == "" {
 							continue
 						}
-						downloadSample(taskUrls[i])
+
+						wg.Add(1) // wgをインクリメント
+						idx := i
+						go func() {
+							downloadSample(taskUrls[idx])
+							wg.Done() // 完了したのでwgをデクリメント
+						}()
 					}
+					wg.Wait()
+
+					elapsedTime := time.Now().Sub(startTime)
+					fmt.Printf("%v\n", elapsedTime.Milliseconds())
 					// downloadSample("abc010", "abc010_1")
 					// downloadSample("abc057", "abc057_b")
 					// downloadSample("abc100", "abc100_a")
