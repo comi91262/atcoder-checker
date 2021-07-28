@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,13 +11,17 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/urfave/cli/v2"
 )
 
-const contestUrl = "https://atcoder.jp/contests"
+var reader = bufio.NewReader(os.Stdin)
+var writer = bufio.NewWriter(os.Stdout)
+
+const hostUrl = "https://atcoder.jp"
 
 func downloadDocuments(url string) (*goquery.Document, error) {
 	res, err := http.Get(url)
@@ -41,7 +46,7 @@ func downloadDocuments(url string) (*goquery.Document, error) {
 
 func downloadTasks(contestId string) []string {
 
-	url := contestUrl + "/" + path.Join(contestId, "tasks")
+	url := hostUrl + "/" + path.Join("contests", contestId, "tasks")
 
 	doc, err := downloadDocuments(url)
 	if err != nil {
@@ -60,9 +65,10 @@ func downloadTasks(contestId string) []string {
 	return paths
 }
 
-func downloadSample(contestId, problemId string) {
+func downloadSample(taskUrl string) {
 
-	url := contestUrl + "/" + path.Join(contestId, "tasks", problemId)
+	url := hostUrl + taskUrl
+	fmt.Printf("%v\n", url)
 
 	doc, err := downloadDocuments(url)
 	if err != nil {
@@ -70,27 +76,49 @@ func downloadSample(contestId, problemId string) {
 		return
 	}
 
-	inputText := ""
-	outputText := ""
+	input := []string{}
+	output := []string{}
 	doc.Find("section").Each(func(i int, s *goquery.Selection) {
 		if strings.HasPrefix(s.Find("h3").Text(), "入力例") {
 			fmt.Printf("%v\n", s.Find("h3").Text())
+
+			text := ""
 			s.Find("pre").Each(func(i int, s *goquery.Selection) {
 				fmt.Printf("%v\n", s.Text())
-				inputText += s.Text() + "\n"
+				text += s.Text() + "\n"
 			})
+			input = append(input, text)
 		}
 		if strings.HasPrefix(s.Find("h3").Text(), "出力例") {
 			fmt.Printf("%v\n", s.Find("h3").Text())
+
+			text := ""
 			s.Find("pre").Each(func(i int, s *goquery.Selection) {
 				fmt.Printf("%v\n", s.Text())
-				outputText += s.Text() + "\n"
+				text += s.Text() // + "\n"
 			})
+			output = append(output, text)
 		}
 	})
 
-	archiveFile(inputText, "input.txt", "sample")
-	archiveFile(outputText, "output.txt", "sample")
+	fmt.Fprintf(writer, "%v\n", input)
+	fmt.Fprintf(writer, "%v\n", output)
+	fmt.Fprintf(writer, "%v\n", taskUrl)
+	writer.Flush()
+	paths := strings.Split(taskUrl, "/")
+	fmt.Fprintf(writer, "%v\n", paths)
+	writer.Flush()
+	ids := strings.Split(paths[len(paths)-1], "_")
+	contestId := ids[0]
+	taskId := ids[1]
+
+	for i := range input {
+		archiveFile(input[i], strconv.Itoa(i)+"txt", filepath.Join("sample", contestId, taskId, "in"))
+	}
+
+	for i := range output {
+		archiveFile(output[i], strconv.Itoa(i)+"txt", filepath.Join("sample", contestId, taskId, "out"))
+	}
 	//fmt.Println(string(byteArray)) // htmlをstringで取得
 }
 
@@ -189,13 +217,25 @@ func main() {
 				Aliases: []string{"d"},
 				Usage:   "download sample",
 				Action: func(c *cli.Context) error {
-					// fmt.Print(downloadTasks("abc001"))
-					// downloadSample("abc001", "abc001_1")
+					contestId := c.Args().Get(0)
+					// fmt.Printf("%v\n", contestId)
+					// fmt.Printf("%v\n", downloadTasks(contestId))
+					taskUrls := downloadTasks(contestId)
+
+					fmt.Printf("%v\n", len(taskUrls))
+					for i := range taskUrls {
+						fmt.Printf("%v\n", i)
+						fmt.Printf("%v\n", taskUrls[i])
+						if taskUrls[i] == "" {
+							continue
+						}
+						downloadSample(taskUrls[i])
+					}
 					// downloadSample("abc010", "abc010_1")
 					// downloadSample("abc057", "abc057_b")
 					// downloadSample("abc100", "abc100_a")
 					// downloadSample("abc200", "abc200_a")
-					execute()
+					// execute()
 					return nil
 				},
 			},
