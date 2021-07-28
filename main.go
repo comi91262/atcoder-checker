@@ -35,32 +35,25 @@ func downloadDocuments(url string) (*goquery.Document, error) {
 	return doc, nil
 }
 
-func downloadTasks(contestId string) {
+func downloadTasks(contestId string) []string {
+
 	url := contestUrl + "/" + path.Join(contestId, "tasks")
 
 	doc, err := downloadDocuments(url)
 	if err != nil {
 		log.Fatal("fail to download html")
-		return
+		return []string{}
 	}
 
-	doc.Find("table").Each(func(i int, s *goquery.Selection) {
-		fmt.Printf("%v\n", s.Text())
-		// fmt.Printf("%v\n", s.Find("h3").Text())
-		// s.Find("pre").Each(func(i int, s *goquery.Selection) {
-		// 	fmt.Printf("%v\n", s.Text())
-		// 	tex += s.Text()
-		// })
+	paths := []string{}
+	doc.Find("table").Each(func(_ int, table *goquery.Selection) {
+		table.Find("tr").Each(func(_ int, row *goquery.Selection) {
+			url, _ := row.Find("td").Next().Find("a").Attr("href")
+			paths = append(paths, url)
+		})
 	})
 
-	// for tag in soup.find('table').select('tr')[1::]:
-	//     tag = tag.find("a")
-	//     alphabet = tag.text
-	//     problem_id = tag.get("href").split("/")[-1]
-	//     res.append(Problem(contest, alphabet, problem_id))
-	// return res
-
-	//fmt.Println(string(byteArray)) // htmlをstringで取得
+	return paths
 }
 
 func downloadSample(contestId, problemId string) {
@@ -117,8 +110,11 @@ func main() {
 				Aliases: []string{"d"},
 				Usage:   "download sample",
 				Action: func(c *cli.Context) error {
-					// downloadSample("abc046", "abc046_a")
-					downloadTasks("abc046")
+					fmt.Print(downloadTasks("abc001"))
+					fmt.Print(downloadTasks("abc010"))
+					fmt.Print(downloadTasks("abc100"))
+					fmt.Print(downloadTasks("abc190"))
+					downloadSample("abc046", "abc046_a")
 					return nil
 				},
 			},
