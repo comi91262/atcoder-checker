@@ -1,4 +1,4 @@
-module github.com/ykonomi/oj-go
+module github.com/ykonomi/atcoder-checker
 
 go 1.15
 
