@@ -1,4 +1,4 @@
-## AtCoderでの定型作業を自動化するツール
+# AtCoderでの定型作業を自動化するツール
 
 ## なぜ作る必要があったか
 
@@ -6,6 +6,7 @@
 
 ## 使い方
 
+```
 NAME:
    atcoder-checker - Atcoder utility tools
 
@@ -15,6 +16,7 @@ USAGE:
 COMMANDS:
    download, d  download sample
    check, c     check sample
+```
 
 ## 作るものリスト
 
