@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,14 +15,10 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/urfave/cli/v2"
 )
-
-var reader = bufio.NewReader(os.Stdin)
-var writer = bufio.NewWriter(os.Stdout)
 
 const hostUrl = "https://atcoder.jp"
 
@@ -48,12 +44,11 @@ func downloadDocuments(url string) (*goquery.Document, error) {
 }
 
 func downloadTasks(contestId string) []string {
-
 	url := hostUrl + "/" + path.Join("contests", contestId, "tasks")
 
 	doc, err := downloadDocuments(url)
 	if err != nil {
-		log.Fatal("fail to download html")
+		log.Fatal("fail to download tasks")
 		return []string{}
 	}
 
@@ -61,121 +56,88 @@ func downloadTasks(contestId string) []string {
 	doc.Find("table").Each(func(_ int, table *goquery.Selection) {
 		table.Find("tr").Each(func(_ int, row *goquery.Selection) {
 			url, _ := row.Find("td").Next().Find("a").Attr("href")
-			paths = append(paths, url)
+			if url != "" {
+				paths = append(paths, url)
+			}
 		})
 	})
 
 	return paths
 }
 
-func downloadSample(taskUrl string) {
-
-	url := hostUrl + taskUrl
-	fmt.Printf("%v\n", url)
-
-	doc, err := downloadDocuments(url)
+func downloadSample(taskUrl string) error {
+	doc, err := downloadDocuments(hostUrl + taskUrl)
 	if err != nil {
-		log.Fatal("fail to download sample")
-		return
+		log.Fatal("[error] fail to download sample")
+		return err
 	}
 
 	input := []string{}
 	output := []string{}
 	doc.Find("section").Each(func(i int, s *goquery.Selection) {
 		if strings.HasPrefix(s.Find("h3").Text(), "入力例") {
-			fmt.Printf("%v\n", s.Find("h3").Text())
-
 			text := ""
 			s.Find("pre").Each(func(i int, s *goquery.Selection) {
-				fmt.Printf("%v\n", s.Text())
-				text += s.Text() + "\n"
+				text += s.Text()
 			})
 			input = append(input, text)
 		}
 		if strings.HasPrefix(s.Find("h3").Text(), "出力例") {
-			fmt.Printf("%v\n", s.Find("h3").Text())
-
 			text := ""
 			s.Find("pre").Each(func(i int, s *goquery.Selection) {
-				fmt.Printf("%v\n", s.Text())
-				text += s.Text() // + "\n"
+				text += s.Text()
 			})
 			output = append(output, text)
 		}
 	})
 
-	fmt.Fprintf(writer, "%v\n", input)
-	fmt.Fprintf(writer, "%v\n", output)
-	fmt.Fprintf(writer, "%v\n", taskUrl)
-	writer.Flush()
 	paths := strings.Split(taskUrl, "/")
-	fmt.Fprintf(writer, "%v\n", paths)
-	writer.Flush()
 	ids := strings.Split(paths[len(paths)-1], "_")
-	contestId := ids[0]
-	taskId := ids[1]
+	contestId, taskId := ids[0], ids[1]
 
 	for i := range input {
-		archiveFile(input[i], strconv.Itoa(i)+".txt", filepath.Join("sample", contestId, taskId, "in"))
+		fileName := strconv.Itoa(i) + ".txt"
+		directoryPath := filepath.Join("sample", contestId, taskId, "in")
+
+		if err := archiveFile(input[i], fileName, directoryPath); err != nil {
+			log.Fatalf("[error] fail to save %v/%v", directoryPath, fileName)
+			return err
+		}
 	}
 
 	for i := range output {
-		archiveFile(output[i], strconv.Itoa(i)+".txt", filepath.Join("sample", contestId, taskId, "out"))
-	}
-	//fmt.Println(string(byteArray)) // htmlをstringで取得
-}
+		fileName := strconv.Itoa(i) + ".txt"
+		directoryPath := filepath.Join("sample", contestId, taskId, "out")
 
-// func loadSample() {
-// 	filepath.Walk("sample", func(path string, info os.FileInfo, err error) error {
-// 		if !info.IsDir() {
-// 			fmt.Printf("%v\n", path)
-// 			fp, err := os.Open(path)
-// 			if err != nil {
-// 				log.Println(err)
-// 				return err
-// 			}
-// 			defer fp.Close()
-// 			scanner := bufio.NewScanner(fp)
-// 			for scanner.Scan() {
-// 				archivedKeys[scanner.Text()] = struct{}{}
-// 			}
-// 		}
-// 		return nil
-// 	})
-// }
-
-func makeDirectory(path string) error {
-	if err := os.MkdirAll(path, 0700); err != nil {
-		log.Fatal(err)
-		return err
+		if err := archiveFile(output[i], fileName, directoryPath); err != nil {
+			log.Fatalf("[error] fail to save %v/%v", directoryPath, fileName)
+			return err
+		}
 	}
 
 	return nil
 }
 
 func archiveFile(code, fileName, path string) error {
-	makeDirectory(path)
-	filePath := filepath.Join(path, fileName)
-	file, err := os.Create(filePath)
+	if err := os.MkdirAll(path, 0700); err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	file, err := os.Create(filepath.Join(path, fileName))
 	if err != nil {
+		log.Fatal(err)
 		return err
 	}
 	defer file.Close()
-	file.WriteString(code)
+
+	if _, err := file.WriteString(code); err != nil {
+		log.Fatal(err)
+		return err
+	}
+
 	return nil
 }
-
-// func compile() {
-// 	// TODO not found hoge.go
-// 	out, err := exec.Command("go", "build", "-o", "main", "hoge.go").Output()
-// 	if err != nil {
-// 		log.Fatal(err)
-// 		return
-// 	}
-//
-// 	out, err := exec.Command("go", "build", "-o", "main", "hoge.go").Output()
-// 	fmt.Printf("結果: %s", out)
-// }
 
 func execute(contestId, taskId string) {
 	inputPath := filepath.Join("sample", contestId, taskId, "in")
@@ -230,6 +192,8 @@ func execute(contestId, taskId string) {
 		fmt.Printf("%v\n", cmd.ProcessState.SysUsage().(*syscall.Rusage).Maxrss)
 		fmt.Printf("%v\n", cmd.ProcessState.SystemTime())
 		fmt.Printf("%v\n", cmd.ProcessState.UserTime())
+		//startTime := time.Now()
+		//elapsedTime := time.Now().Sub(startTime)
 
 		bytes, err = ioutil.ReadFile(outputs[i])
 		if err != nil {
@@ -247,13 +211,25 @@ func execute(contestId, taskId string) {
 
 }
 
-//
-//  // Find the review items
-//  doc.Find(".left-content article .post-title").Each(func(i int, s *goquery.Selection) {
-//		// For each item found, get the title
-//		title := s.Find("a").Text()
-//		fmt.Printf("Review %d: %s\n", i, title)
-//	})
+func downloadSamples(contestId string) {
+	taskUrls := downloadTasks(contestId)
+
+	wg := &sync.WaitGroup{}
+
+	for i := range taskUrls {
+		wg.Add(1)
+		idx := i
+		go func() {
+			if err := downloadSample(taskUrls[idx]); err != nil {
+				fmt.Printf("[failed] %v\n", taskUrls[idx])
+			} else {
+				fmt.Printf("[success] %v\n", taskUrls[idx])
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
 
 func main() {
 	app := cli.App{Name: "oj-go", Usage: "Atcoder utility tools",
@@ -264,47 +240,27 @@ func main() {
 				Usage:   "download sample",
 				Action: func(c *cli.Context) error {
 					contestId := c.Args().Get(0)
-					// fmt.Printf("%v\n", contestId)
-					// fmt.Printf("%v\n", downloadTasks(contestId))
-					taskUrls := downloadTasks(contestId)
-
-					fmt.Printf("%v\n", len(taskUrls))
-
-					wg := &sync.WaitGroup{} // WaitGroupの値を作る
-					startTime := time.Now()
-					for i := range taskUrls {
-						fmt.Printf("%v\n", i)
-						fmt.Printf("%v\n", taskUrls[i])
-						if taskUrls[i] == "" {
-							continue
-						}
-
-						wg.Add(1) // wgをインクリメント
-						idx := i
-						go func() {
-							downloadSample(taskUrls[idx])
-							wg.Done() // 完了したのでwgをデクリメント
-						}()
+					if contestId == "" {
+						return errors.New("[error] contestId is required e.g abc001")
 					}
-					wg.Wait()
-
-					elapsedTime := time.Now().Sub(startTime)
-					fmt.Printf("%v\n", elapsedTime.Milliseconds())
-					// downloadSample("abc010", "abc010_1")
-					// downloadSample("abc057", "abc057_b")
-					// downloadSample("abc100", "abc100_a")
-					// downloadSample("abc200", "abc200_a")
-					// execute()
+					downloadSamples(contestId)
 					return nil
 				},
 			},
 			{
-				Name:    "test",
-				Aliases: []string{"t"},
-				Usage:   "test sample",
+				Name:    "check",
+				Aliases: []string{"c"},
+				Usage:   "check sample",
 				Action: func(c *cli.Context) error {
 					contestId := c.Args().Get(0)
+					if contestId == "" {
+						return errors.New("[error] contestId is required e.g abc001")
+					}
 					taskId := c.Args().Get(1)
+					if taskId == "" {
+						return errors.New("[error] taskId is required e.g a or 1")
+					}
+
 					execute(contestId, taskId)
 					return nil
 				},
