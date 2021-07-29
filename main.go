@@ -44,21 +44,23 @@ func downloadDocuments(url string) (*goquery.Document, error) {
 	return doc, nil
 }
 
-func downloadTasks(contestId string) []string {
+func downloadTasks(contestId string) map[string]string {
 	url := hostUrl + "/" + path.Join("contests", contestId, "tasks")
 
 	doc, err := downloadDocuments(url)
 	if err != nil {
 		log.Fatal("fail to download tasks")
-		return []string{}
+		return map[string]string{}
 	}
 
-	paths := []string{}
+	paths := map[string]string{}
 	doc.Find("table").Each(func(_ int, table *goquery.Selection) {
 		table.Find("tr").Each(func(_ int, row *goquery.Selection) {
-			url, _ := row.Find("td").Next().Find("a").Attr("href")
+			td := row.Find("td").First()
+
+			url, _ := td.Find("a").Attr("href")
 			if url != "" {
-				paths = append(paths, url)
+				paths[strings.ToLower(td.Text())] = url
 			}
 		})
 	})
@@ -66,8 +68,12 @@ func downloadTasks(contestId string) []string {
 	return paths
 }
 
-func downloadSample(taskUrl string) error {
-	doc, err := downloadDocuments(hostUrl + taskUrl)
+// taskPath: /contests/abc059/tasks/abc059_b
+// ただし, https://atcoder.jp/contests/abc059/tasks/arc072_a
+// のように, ARCの問題の一部がABCと共用だった時期があるため、
+// ディレクトリは指定した contestId で作る
+func downloadSample(contestId, taskId, taskPath string) error {
+	doc, err := downloadDocuments(hostUrl + taskPath)
 	if err != nil {
 		log.Fatal("[error] fail to download sample")
 		return err
@@ -91,10 +97,6 @@ func downloadSample(taskUrl string) error {
 			output = append(output, text)
 		}
 	})
-
-	paths := strings.Split(taskUrl, "/")
-	ids := strings.Split(paths[len(paths)-1], "_")
-	contestId, taskId := ids[0], ids[1]
 
 	for i := range input {
 		fileName := strconv.Itoa(i) + ".txt"
@@ -158,18 +160,19 @@ func loadFilePath(path string) ([]string, error) {
 }
 
 func downloadSamples(contestId string) {
-	taskUrls := downloadTasks(contestId)
+	taskPaths := downloadTasks(contestId)
 
 	wg := &sync.WaitGroup{}
 
-	for i := range taskUrls {
+	for k, v := range taskPaths {
 		wg.Add(1)
-		idx := i
+
+		taskId, taskPath := k, v
 		go func() {
-			if err := downloadSample(taskUrls[idx]); err != nil {
-				fmt.Printf("[failed] %v\n", taskUrls[idx])
+			if err := downloadSample(contestId, taskId, taskPath); err != nil {
+				fmt.Printf("[failed] %v\n", taskPath)
 			} else {
-				fmt.Printf("[success] %v\n", taskUrls[idx])
+				fmt.Printf("[success] %v\n", taskPath)
 			}
 			wg.Done()
 		}()
