@@ -260,7 +260,7 @@ func checkSample(contestId, taskId string) {
 }
 
 func main() {
-	app := cli.App{Name: "oj-go", Usage: "Atcoder utility tools",
+	app := cli.App{Name: "atcoder-checker", Usage: "Atcoder utility tools",
 		Commands: []*cli.Command{
 			{
 				Name:    "download",
