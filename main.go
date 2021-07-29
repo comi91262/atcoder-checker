@@ -178,7 +178,7 @@ func downloadSamples(contestId string) {
 }
 
 func execute(path string) ([]byte, time.Duration, int64, error) {
-	cmd := exec.Command("./hoge")
+	cmd := exec.Command("./main")
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
