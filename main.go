@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -225,6 +226,10 @@ func execute(contestId, taskId string) {
 			log.Fatal(err)
 			return
 		}
+		//fmt.Printf("%v\n", cmd.ProcessState.SysUsage().(*syscall.Rusage).Maxrss)
+		fmt.Printf("%v\n", cmd.ProcessState.SysUsage().(*syscall.Rusage).Maxrss)
+		fmt.Printf("%v\n", cmd.ProcessState.SystemTime())
+		fmt.Printf("%v\n", cmd.ProcessState.UserTime())
 
 		bytes, err = ioutil.ReadFile(outputs[i])
 		if err != nil {
